@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: rndm
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  
+  api-server:
+    build:
+      context: ./api-server
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://rndm:password@postgres:5432/db?sslmode=disable
+    depends_on:
+      - postgres
+  
+  scheduler:
+    build:
+      context: ./scheduler
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgres://rndm:password@postgres:5432/db?sslmode=disable
+    depends_on:
+      - postgres
+  
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgres://rndm:password@postgres:5432/db?sslmode=disable
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:
