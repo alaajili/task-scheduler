@@ -1,8 +1,8 @@
 server:
   port: 8080
-  readtimeout: 30s
-  writetimeout: 30s
-  shutdowntimeout: 10s
+  read_timeout: 30s
+  write_timeout: 30s
+  shutdown_timeout: 10s
 
 database:
   host: localhost
@@ -11,8 +11,8 @@ database:
   password: postgres
   dbname: taskscheduler
   sslmode: disable
-  maxconns: 25
-  maxidle: 5
+  max_conns: 25
+  max_idle: 5
 
 redis:
   host: localhost
@@ -26,7 +26,7 @@ etcd:
   timeout: 5s
 
 worker:
-  heartbeatinterval: 10s
-  taskpollinterval: 1s
-  tasktimeout: 5m
-  maxconcurrent: 10
+  heartbeat_interval: 10s
+  task_poll_interval: 1s
+  task_timeout: 5m
+  max_concurrent: 10
