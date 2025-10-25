@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -63,4 +64,35 @@ func TestTaskLifecycle(t *testing.T) {
 	assert.Equal(t, TaskStateCompleted, task.State)
 	assert.NotNil(t, task.CompletedAt)
 	assert.Equal(t, result, task.Result)
+}
+
+func TestTaskMarkFailed(t *testing.T) {
+	task := NewTask(TaskTypeDataProcessing, nil, 5)
+	
+	err := assert.AnError
+	task.MarkFailed(err)
+	assert.Equal(t, TaskStateFailed, task.State)
+	assert.NotNil(t, task.CompletedAt)
+	assert.Equal(t, err.Error(), task.Error)
+	assert.Equal(t, 1, task.RetryCount)
+}
+
+
+func TestTaskDuration(t *testing.T) {
+	task := NewTask(TaskTypeEmailSend, nil, 5)
+
+	// Duration should be zero if not started or completed
+	assert.Equal(t, 0*time.Second, task.Duration())
+
+	workerID := "worker-123"
+	task.MarkStarted(workerID)
+
+	// Duration should be zero if not completed
+	assert.Equal(t, 0*time.Second, task.Duration())
+
+	task.MarkCompleted(json.RawMessage(`{"status": "failed"}`))
+
+	// Duration should be greater than zero after completion
+	duration := task.Duration()
+	assert.Greater(t, duration, 0*time.Second)
 }
