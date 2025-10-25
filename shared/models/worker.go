@@ -22,7 +22,7 @@ type Worker struct {
 	Status	      WorkerStatus `json:"status" db:"status"`
 	CurrentTaskID string       `json:"current_task_id,omitempty" db:"current_task_id"`
 	LastHeartbeat time.Time    `json:"last_heartbeat" db:"last_heartbeat"`
-	TaskTypes     []TaskType `json:"task_types" db:"task_types"` // Types of tasks this worker can handle
+	TaskTypes     []TaskType   `json:"task_types" db:"task_types"` // Types of tasks this worker can handle
 	CreatedAt     time.Time    `json:"created_at" db:"created_at"`
 }
 
