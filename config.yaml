@@ -1,0 +1,32 @@
+server:
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 30s
+  shutdown_timeout: 10s
+
+database:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: postgres
+  dbname: taskscheduler
+  sslmode: disable
+  max_conns: 25
+  max_idle: 5
+
+redis:
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
+
+etcd:
+  endpoints:
+    - localhost:2379
+  timeout: 5s
+
+worker:
+  heartbeat_interval: 10s
+  task_poll_interval: 1s
+  task_timeout: 5m
+  max_concurrent: 10
