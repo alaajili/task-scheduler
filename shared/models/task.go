@@ -11,21 +11,21 @@ import (
 type TaskState string
 
 const (
-	TaskStatePending   TaskState = "PENDING"
-	TaskStateRunning   TaskState = "RUNNING"
-	TaskStateCompleted TaskState = "COMPLETED"
-	TaskStateFailed    TaskState = "FAILED"
-	TaskStateCanceled  TaskState = "CANCELED"
+	TaskStatePending   TaskState = "pending"
+	TaskStateRunning   TaskState = "running"
+	TaskStateCompleted TaskState = "completed"
+	TaskStateFailed    TaskState = "failed"
+	TaskStateCancelled TaskState = "cancelled"
 )
 
 // TaskType represents the type of a task to be executed.
 type TaskType string
 
 const (
-	TaskTypeHTTPRequest    TaskType = "HTTP_REQUEST"
-	TaskTypeDataProcessing TaskType = "DATA_PROCESSING"
-	TaskTypeEmailSend      TaskType = "EMAIL_SEND"
-	TaskTypeLongRunning    TaskType = "LONG_RUNNING"
+	TaskTypeHTTPRequest    TaskType = "http_request"
+	TaskTypeDataProcessing TaskType = "data_processing"
+	TaskTypeEmailSend      TaskType = "email_send"
+	TaskTypeLongRunning    TaskType = "long_running"
 )
 
 // Task represents a task in the system.
