@@ -4,6 +4,7 @@
 DOCKER_COMPOSE = docker-compose
 MIGRATE = migrate
 DB_URL = postgres://postgres:postgres@localhost:5432/taskscheduler?sslmode=disable
+DB_TEST_URL = postgres://postgres:postgres@localhost:5432/taskscheduler_test?sslmode=disable
 
 help: ## Show this help message
 	@echo "Usage: make [target]"
@@ -38,10 +39,20 @@ migrate-up: ## Apply database migrations
 	@$(MIGRATE) -path ./migrations -database "$(DB_URL)" up
 	@echo "Migrations applied."
 
+migrate-test-up: ## Apply database migrations to the test database
+	@echo "Applying database migrations to test database..."
+	@$(MIGRATE) -path ./migrations -database "$(DB_TEST_URL)" up
+	@echo "Migrations applied to test database."
+
 migrate-down: ## Rollback the last database migration
 	@echo "Rolling back the last database migration..."
 	@$(MIGRATE) -path ./migrations -database "$(DB_URL)" down
 	@echo "Last migration rolled back."
+
+migrate-test-down: ## Rollback the last database migration in the test database
+	@echo "Rolling back the last database migration in test database..."
+	@$(MIGRATE) -path ./migrations -database "$(DB_TEST_URL)" down
+	@echo "Last migration rolled back in test database."
 
 migrate-create: ## Create a new database migration. Usage: make migrate-create NAME=<migration_name>
 	@if [ -z "$(NAME)" ]; then \

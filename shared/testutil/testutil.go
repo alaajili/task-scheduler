@@ -66,8 +66,8 @@ func CreateTestTask(t *testing.T, db *database.DB, task *models.Task) {
 
 	query := `
 		INSERT INTO tasks (
-			id, type, payload, prority, state,
-			retry_count, max_retries, creqated_at
+			id, type, payload, priority, state,
+			retry_count, max_retries, created_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 

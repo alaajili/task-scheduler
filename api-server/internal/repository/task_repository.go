@@ -18,6 +18,10 @@ func NewTaskRepository(db *database.DB) *TaskRepository {
 	return &TaskRepository{db: db}
 }
 
+func (r *TaskRepository) DB() *database.DB {
+	return r.db
+}
+
 // CreateTask inserts a new task into the database.
 func (r *TaskRepository) CreateTask(ctx context.Context, task *models.Task) error {
 	query := `
