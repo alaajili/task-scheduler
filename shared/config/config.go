@@ -47,10 +47,11 @@ type EtcdConfig struct {
 }
 
 type WorkerConfig struct {
-	HeartbeatInterval time.Duration `mapstructure:"heartbeat_interval"`
-	TaskPollInterval  time.Duration `mapstructure:"task_poll_interval"`
-	TaskTimeout       time.Duration `mapstructure:"task_timeout"`
-	MaxConcurrent     int           `mapstructure:"max_concurrent"`
+	HeartbeatInterval       time.Duration `mapstructure:"heartbeat_interval"`
+	TaskPollInterval        time.Duration `mapstructure:"task_poll_interval"`
+	TaskTimeout             time.Duration `mapstructure:"task_timeout"`
+	MaxConcurrent           int           `mapstructure:"max_concurrent"`
+	GracefulShutdownTimeout time.Duration `mapstructure:"graceful_shutdown_timeout"`
 }
 
 // LoadConfig loads the configuration from config file or environment variables.
