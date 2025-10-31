@@ -108,10 +108,16 @@ func (s *WorkerService) handleTaskFailure(ctx context.Context, task *models.Task
 			zap.Duration("retry_delay", delay),
 		)
 		
-		time.Sleep(delay)
-		if err := s.taskRepo.MarkTaskForRetry(ctx, task.ID, delay); err != nil {
-			return err
-		}
+		go func() {
+			time.Sleep(delay)
+			if err := s.taskRepo.MarkTaskForRetry(context.Background(), task.ID, delay); err != nil {
+				logger.Error("Failed to mark task for retry",
+					zap.String("task_id", task.ID),
+					zap.Error(err),
+				)
+			}
+		}()
+
 	} else {
 		logger.Warn("Task exceeded max retries",
 			zap.String("task_id", task.ID),

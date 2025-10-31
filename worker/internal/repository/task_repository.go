@@ -17,6 +17,10 @@ type TaskRepository struct {
 	db *database.DB
 }
 
+func (r *TaskRepository) DB() *database.DB {
+	return r.db
+}
+
 // NewTaskRepository creates a new task repository
 func NewTaskRepository(db *database.DB) *TaskRepository {
 	return &TaskRepository{db: db}
