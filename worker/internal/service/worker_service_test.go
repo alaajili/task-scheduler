@@ -5,17 +5,21 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/alaajili/task-scheduler/shared/config"
 	"github.com/alaajili/task-scheduler/shared/models"
+	"github.com/alaajili/task-scheduler/shared/queue"
 	"github.com/alaajili/task-scheduler/shared/testutil"
 	"github.com/alaajili/task-scheduler/worker/internal/repository"
 	"github.com/alaajili/task-scheduler/worker/internal/service"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setupWorkerTest(t *testing.T) (*service.WorkerService, *repository.TaskRepository) {
 	db := testutil.TestDB(t)
 	repo := repository.NewTaskRepository(db)
+	cfg, _ := config.LoadConfig("")
+	rq, _ := queue.NewRedisQueue(cfg.Redis)
 	
 	taskTypes := []models.TaskType{
 		models.TaskTypeHTTPRequest,
@@ -24,7 +28,7 @@ func setupWorkerTest(t *testing.T) (*service.WorkerService, *repository.TaskRepo
 		models.TaskTypeLongRunning,
 	}
 	
-	workerService := service.NewWorkerService("test-worker", repo, taskTypes)
+	workerService := service.NewWorkerService("test-worker", repo, rq,taskTypes)
 	
 	return workerService, repo
 }

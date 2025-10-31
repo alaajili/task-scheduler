@@ -12,6 +12,7 @@ import (
 	"github.com/alaajili/task-scheduler/shared/database"
 	"github.com/alaajili/task-scheduler/shared/logger"
 	"github.com/alaajili/task-scheduler/shared/models"
+	"github.com/alaajili/task-scheduler/shared/queue"
 	"github.com/alaajili/task-scheduler/worker/internal/repository"
 	"github.com/alaajili/task-scheduler/worker/internal/service"
 	"github.com/google/uuid"
@@ -36,6 +37,12 @@ func main() {
 	}
 	defer db.Close()
 	
+	rq, err := queue.NewRedisQueue(cfg.Redis)
+	if err != nil {
+		logger.Fatal("Failed to connect to redis", zap.Error(err))
+	}
+	defer rq.Close()
+	
 	workerID := fmt.Sprintf("worker-%s", uuid.New().String()[:8])
 	taskRepo := repository.NewTaskRepository(db)
 	
@@ -45,10 +52,10 @@ func main() {
 		models.TaskTypeEmailSend,
 		models.TaskTypeLongRunning,
 	}
-	workerService := service.NewWorkerService(workerID, taskRepo, taskTypes)
+	workerService := service.NewWorkerService(workerID, taskRepo, rq, taskTypes)
 	logger.Info("New worker started",
 		zap.String("worker_id", workerID),
-		// zap.Strings("task_types", taskTypesToStrings(taskTypes)),
+		zap.Strings("task_types", taskTypesToStrings(taskTypes)),
 	)
 	
 	ctx, cancel := context.WithCancel(context.Background())
@@ -61,6 +68,8 @@ func main() {
 	
 	sig := <-sigChan
 	logger.Info("Received Shutdown signal", zap.String("signal", sig.String()))
+	
+	cancel()
 	
 	shutdownTimeout := cfg.Worker.GracefulShutdownTimeout
 	if shutdownTimeout == 0 {
@@ -75,28 +84,37 @@ func main() {
 	logger.Info("Worker stopped", zap.String("worker_id", workerID))
 }
 
-func workerLoop(ctx context.Context, s *service.WorkerService, pollInterval time.Duration) {
+func workerLoop(ctx context.Context, workerService *service.WorkerService, pollInterval time.Duration) {
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
-	
+
+	consecutiveEmptyPolls := 0
+	maxBackoff := 5 * time.Second
+
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info("Worker Loop stopping")
+			logger.Info("Worker loop stopping")
 			return
 		case <-ticker.C:
-			processed, err := s.ProcessNextTask(ctx)
+			// Process next task
+			processed, err := workerService.ProcessNextTask(ctx)
 			if err != nil {
 				logger.Error("Error processing task", zap.Error(err))
 				continue
 			}
+
 			if !processed {
-				// no tasks available, wait for the next thick
-				continue
+				// No tasks available - implement backoff
+				consecutiveEmptyPolls++
+				backoff := time.Duration(consecutiveEmptyPolls) * pollInterval
+				backoff = min(backoff, maxBackoff)
+				ticker.Reset(backoff)
+			} else {
+				// Task was processed - reset backoff
+				consecutiveEmptyPolls = 0
+				ticker.Reset(pollInterval)
 			}
-			
-			// task was  processed, check immmediatly for the next one 
-			ticker.Reset(pollInterval)
 		}
 	}
 }

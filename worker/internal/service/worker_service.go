@@ -2,13 +2,14 @@ package service
 
 import (
 	"context"
-	"math/rand"
 	"fmt"
 	"math"
+	"math/rand"
 	"time"
 
 	"github.com/alaajili/task-scheduler/shared/logger"
 	"github.com/alaajili/task-scheduler/shared/models"
+	"github.com/alaajili/task-scheduler/shared/queue"
 	"github.com/alaajili/task-scheduler/worker/internal/executor"
 	"github.com/alaajili/task-scheduler/worker/internal/repository"
 	"go.uber.org/zap"
@@ -18,33 +19,57 @@ import (
 type WorkerService struct {
 	workerID string
 	taskRepo   *repository.TaskRepository
+	queue      *queue.RedisQueue
 	executor   *executor.Executor
 	taskTypes  []models.TaskType
 	maxRetries int
+	useQueue   bool
 }
 
 func NewWorkerService(
 	workerID  string,
 	taskRepo  *repository.TaskRepository,
+	queue     *queue.RedisQueue,
 	taskTypes []models.TaskType,
 ) *WorkerService {
 	return &WorkerService{
-		workerID: workerID,
-		taskRepo: taskRepo,
-		executor: executor.NewExecutor(workerID),
-		taskTypes: taskTypes,
+		workerID:   workerID,
+		taskRepo:   taskRepo,
+		queue:      queue,
+		executor:   executor.NewExecutor(workerID),
+		taskTypes:  taskTypes,
 		maxRetries: 5,
+		useQueue:   true,
 	}
 }
 
 // ProcessNextTask fetches and process the next available task
 func (s *WorkerService) ProcessNextTask(ctx context.Context) (bool, error) {
-	task, err := s.taskRepo.GetNextPendingTask(ctx, s.taskTypes)
-	if err != nil {
-		return false, fmt.Errorf("failed to get next pending task: %w", err)
+	var task *models.Task
+	var err error
+	
+	if s.useQueue && s.queue != nil {
+		// get task from redis queue
+		taskID, err := s.queue.PopTask(ctx)
+		if err != nil {
+			logger.Error("Failed to get task from the queue", zap.Error(err))
+			// fallback to databse polling
+			task, err = s.taskRepo.GetNextPendingTask(ctx, s.taskTypes)
+		} else if taskID == "" {
+			return false, nil // no tasks in the queue 
+		} else {
+			// get task details from db
+			task, err = s.taskRepo.GetTaskByID(ctx, taskID)
+		}
+	} else {
+		task, err = s.taskRepo.GetNextPendingTask(ctx, s.taskTypes) // db polling
 	}
 	
-	// No task pending available
+	if err != nil {
+		return false, fmt.Errorf("failed to get next task: %w", err)
+	}
+	
+	// no tasks available
 	if task == nil {
 		return false, nil
 	}
@@ -55,6 +80,7 @@ func (s *WorkerService) ProcessNextTask(ctx context.Context) (bool, error) {
 		zap.Int("priority", task.Priority),
 	)
 	
+	// mark the test as started
 	if err := s.taskRepo.MarkTaskStarted(ctx, task.ID, s.workerID); err != nil {
 		logger.Error("Failed to mark task as started",
 			zap.String("task_id", task.ID),
@@ -63,7 +89,6 @@ func (s *WorkerService) ProcessNextTask(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	
-	// execute task
 	err = s.executor.ExecuteTask(ctx, task)
 	if err != nil {
 		logger.Error("Task execution failed",
@@ -80,15 +105,16 @@ func (s *WorkerService) ProcessNextTask(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 	
+	// mark task completed
 	if err := s.taskRepo.MarkTaskCompleted(ctx, task.ID, task.Result); err != nil {
-		logger.Error("Failed to mark test as completed",
+		logger.Error("Failed to mark task as completed",
 			zap.String("task_id", task.ID),
 			zap.Error(err),
 		)
 		return true, err
 	}
 	
-	logger.Info("Task completed succefully",
+	logger.Info("Task completed successfully",
 		zap.String("task_id", task.ID),
 	)
 	
@@ -108,22 +134,26 @@ func (s *WorkerService) handleTaskFailure(ctx context.Context, task *models.Task
 			zap.Duration("retry_delay", delay),
 		)
 		
-		go func() {
-			time.Sleep(delay)
-			if err := s.taskRepo.MarkTaskForRetry(context.Background(), task.ID, delay); err != nil {
-				logger.Error("Failed to mark task for retry",
+		if s.useQueue && s.queue != nil {
+			if err := s.queue.PublishDelayedTask(ctx, task.ID, task.Priority, delay); err != nil {
+				logger.Error("Failed to publish delayed task",
 					zap.String("task_id", task.ID),
 					zap.Error(err),
 				)
+				// Fallback to db retry
+				return s.taskRepo.MarkTaskForRetry(ctx, task.ID, delay)
 			}
-		}()
-
+		} else {
+			time.Sleep(delay)
+			return s.taskRepo.MarkTaskForRetry(ctx, task.ID, delay)
+		}
 	} else {
 		logger.Warn("Task exceeded max retries",
 			zap.String("task_id", task.ID),
 			zap.Int("retry_count", task.RetryCount+1),
 		)
 	}
+	
 	return nil
 }
 
